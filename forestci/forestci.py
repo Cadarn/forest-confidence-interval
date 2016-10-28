@@ -261,7 +261,7 @@ def random_forest_error(forest, inbag, X_train, X_test, calibrate = True, used_t
         sigma2 = (delta**2 + (1 - delta)**2) / (2 * (1 - delta)**2) * sigma2_ss
 
         # Use Monte Carlo noise scale estimate for empirical Bayes calibration
-        vars_calibrated = calibrateEB(V_IJ_unbiased, sigma2)
+        vars_calibrated = _calibrateEB(V_IJ_unbiased, sigma2)
         V_IJ_unbiased = vars_calibrated
 
     return V_IJ_unbiased
