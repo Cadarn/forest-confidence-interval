@@ -3,7 +3,8 @@ import numpy as np
 from scipy.stats import mstats, norm
 from scipy.optimize import minimize
 from sklearn.ensemble.forest import _generate_sample_indices
-from .due import _due, _BibTeX
+import pandas as pd
+from forestci.due import _due, _BibTeX
 
 __all__ = ["calc_inbag", "random_forest_error", "_bias_correction",
            "_core_computation","_gfit","_gbayes","_calibrateEB"]
@@ -48,9 +49,10 @@ def calc_inbag(n_samples, forest):
     inbag = np.zeros((n_samples, n_trees))
     sample_idx = []
     for t_idx in range(n_trees):
+        #GradientBoostingRegressor outputs individual trees as 1-element numpy arrays, this gets around it
+        random_state = forest.estimators_[t_idx].random_state if not isinstance(forest.estimators_[t_idx],np.ndarray else forest.estimators_[t_idx][0].random_state
         sample_idx.append(
-            _generate_sample_indices(forest.estimators_[t_idx].random_state,
-                                     n_samples))
+            _generate_sample_indices(random_state, n_samples))
         inbag[:, t_idx] = np.bincount(sample_idx[-1], minlength=n_samples)
     return inbag
 
