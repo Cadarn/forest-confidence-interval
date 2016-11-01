@@ -237,13 +237,19 @@ def random_forest_error(forest, inbag, X_train, X_test, calibrate = True, used_t
     n_trees = forest.n_estimators
 
     if used_trees == 'all':
-        pred = np.array([tree.predict(X_test) for tree in forest]).T
+        if not isinstance(forest[0],np.ndarray):
+            pred = np.array([tree.predict(X_test) for tree in forest]).T
+        else:
+            pred = np.array([tree[0].predict(X_test) for tree in forest]).T
         pred_mean = np.mean(pred, 0)
         pred_centered = pred - pred_mean
         V_IJ = _core_computation(X_train, X_test, inbag, pred_centered, n_trees)
         V_IJ_unbiased = _bias_correction(V_IJ, inbag, pred_centered, n_trees)
     else:
-        pred = np.array([forest[i].predict(X_test) for i in used_trees]).T
+        if not isinstance(forest[0],np.ndarray):
+            pred = np.array([forest[i].predict(X_test) for i in used_trees]).T
+        else:
+            pred = np.array([forest[i][0].predict(X_test) for i in used_trees]).T
         pred_mean = np.mean(pred, 0)
         pred_centered = pred - pred_mean
         V_IJ = _core_computation(X_train, X_test, inbag[:,used_trees], pred_centered, len(used_trees))
