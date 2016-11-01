@@ -50,7 +50,7 @@ def calc_inbag(n_samples, forest):
     sample_idx = []
     for t_idx in range(n_trees):
         #GradientBoostingRegressor outputs individual trees as 1-element numpy arrays, this gets around it
-        random_state = forest.estimators_[t_idx].random_state if not isinstance(forest.estimators_[t_idx],np.ndarray else forest.estimators_[t_idx][0].random_state
+        random_state = forest.estimators_[t_idx].random_state if not isinstance(forest.estimators_[t_idx],np.ndarray) else forest.estimators_[t_idx][0].random_state
         sample_idx.append(
             _generate_sample_indices(random_state, n_samples))
         inbag[:, t_idx] = np.bincount(sample_idx[-1], minlength=n_samples)
