@@ -3,7 +3,8 @@ import numpy as np
 from scipy.stats import mstats, norm
 from scipy.optimize import minimize
 from sklearn.ensemble.forest import _generate_sample_indices
-from .due import _due, _BibTeX
+import pandas as pd
+from forestci.due import _due, _BibTeX
 
 __all__ = ["calc_inbag", "random_forest_error", "_bias_correction",
            "_core_computation","_gfit","_gbayes","_calibrateEB"]
@@ -44,13 +45,14 @@ def calc_inbag(n_samples, forest):
     Columns are individual trees. Rows are the number of times a sample was
     used in a tree.
     """
-    n_trees = forest.n_estimators
+    n_trees = len(forest.estimators_) #forest.n_estimators <- adaboost can stop early and have less trees than that!
     inbag = np.zeros((n_samples, n_trees))
     sample_idx = []
     for t_idx in range(n_trees):
+        #GradientBoostingRegressor outputs individual trees as 1-element numpy arrays, this gets around it
+        random_state = forest.estimators_[t_idx].random_state if not isinstance(forest.estimators_[t_idx],np.ndarray) else forest.estimators_[t_idx][0].random_state
         sample_idx.append(
-            _generate_sample_indices(forest.estimators_[t_idx].random_state,
-                                     n_samples))
+            _generate_sample_indices(random_state, n_samples))
         inbag[:, t_idx] = np.bincount(sample_idx[-1], minlength=n_samples)
     return inbag
 
@@ -79,7 +81,7 @@ def _gbayes(x0, g_est, sigma):
 
     return np.sum(post * g_est.x)
 
-def _gfit(X, sigma, p = 2, nbin = 1000, unif_fraction = 0.1):
+def _gfit(X, sigma, p = 2, nbin = 100000, unif_fraction = 0.1):
     """
     Fit empirical Bayes prior in the hierarchical model
     mu ~ G, X ~ N(mu,sigma^2)
@@ -105,6 +107,7 @@ def _gfit(X, sigma, p = 2, nbin = 1000, unif_fraction = 0.1):
     -------
     Posterior density estimate G (DataFrame)
     """
+    
     xvals = np.linspace(np.min([np.min(X) - 2 * np.std(X), 0]), np.max([np.max(X) + 2 * np.std(X), np.std(X)]), nbin)
     binw = xvals[1] - xvals[0]
 
@@ -115,7 +118,7 @@ def _gfit(X, sigma, p = 2, nbin = 1000, unif_fraction = 0.1):
         noise_rotate = np.roll(noise_kernel,len(noise_kernel)-zero_idx)
     else:
         noise_rotate = noise_kernel
-
+    
     XX = np.array([xvals**i*(xvals>=0) for i in np.arange(1,p+1)]).T
 
     def neg_loglik(eta):
@@ -232,16 +235,22 @@ def random_forest_error(forest, inbag, X_train, X_test, calibrate = True, used_t
        of Machine Learning Research vol. 15, pp. 1625-1651, 2014.
     """
 
-    n_trees = forest.n_estimators
+    n_trees = len(forest.estimators_) #forest.n_estimators
 
     if used_trees == 'all':
-        pred = np.array([tree.predict(X_test) for tree in forest]).T
+        if not isinstance(forest[0],np.ndarray):
+            pred = np.array([tree.predict(X_test) for tree in forest]).T
+        else:
+            pred = np.array([tree[0].predict(X_test) for tree in forest]).T
         pred_mean = np.mean(pred, 0)
         pred_centered = pred - pred_mean
         V_IJ = _core_computation(X_train, X_test, inbag, pred_centered, n_trees)
         V_IJ_unbiased = _bias_correction(V_IJ, inbag, pred_centered, n_trees)
     else:
-        pred = np.array([forest[i].predict(X_test) for i in used_trees]).T
+        if not isinstance(forest[0],np.ndarray):
+            pred = np.array([forest[i].predict(X_test) for i in used_trees]).T
+        else:
+            pred = np.array([forest[i][0].predict(X_test) for i in used_trees]).T
         pred_mean = np.mean(pred, 0)
         pred_centered = pred - pred_mean
         V_IJ = _core_computation(X_train, X_test, inbag[:,used_trees], pred_centered, len(used_trees))
